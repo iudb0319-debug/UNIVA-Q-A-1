@@ -1,41 +1,157 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>あなたのＨＰタイトル</title>
-<meta name="keywords" content="ページのキーワードA,B,C">
-<meta name="description" content="ページの説明">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNIVA Q&A — ログイン / 登録</title>
+  <meta name="description" content="iU学生向けQ&Aサービス。NotebookLMが大学資料を元に自動回答します。">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<div id="outer">
-<header>
-<div class="header-inner">
-<h1>あなたのＨＰタイトル</h1>
-<p>あなたのＨＰの説明文</p>
-</div>
-</header>
-<div id="content">
-<div class="inner">
-<h2>記事ページ見出し・大</h2>
-<p>文章あれこれ</p>
-<h3>記事ページ見出し・中</h3>
-<p>文章あれこれ</p>
-<h4>記事ページ見出し・小</h4>
-<p>文章あれこれ</p>
-</div>
-<aside>
-<div class="left-title">サイドバータイトル</div>
-<div class="link">
-<ul>
-<li>記事ページへのリンク</li>
-<li>記事ページへのリンク</li>
-</ul>
-</div>
-</aside>
-</div>
-<footer>© 2010 あなたのホームページ</footer>
-</div>
+  <div class="auth-page">
+    <div class="card auth-card">
+      <div class="auth-logo">UNIVA Q&A</div>
+      <p class="auth-subtitle">iU学生向け AI回答型 Q&Aサービス</p>
+
+      <div id="alert-area"></div>
+
+      <!-- タブ切替 -->
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">ログイン</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">新規登録</button>
+      </div>
+
+      <!-- ログインフォーム -->
+      <div class="auth-form-panel active" id="panel-login">
+        <div class="form-group">
+          <label class="form-label" for="login-email">メールアドレス</label>
+          <input class="form-input" type="email" id="login-email" placeholder="xxxx@i-u.ac.jp" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">パスワード</label>
+          <input class="form-input" type="password" id="login-password" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary btn-lg" id="login-btn" onclick="doLogin()" style="width:100%;">
+          ログイン
+        </button>
+        <div class="auth-footer">
+          <a href="#" onclick="switchForgot(); return false;">パスワードを忘れた場合</a>
+        </div>
+      </div>
+
+      <!-- パスワードリセット依頼 (forgot) -->
+      <div class="auth-form-panel" id="panel-forgot">
+        <p style="font-size:0.88rem;color:var(--text-secondary);">登録済みのメールアドレスにリセットリンクを送信します。</p>
+        <div class="form-group">
+          <label class="form-label" for="forgot-email">メールアドレス</label>
+          <input class="form-input" type="email" id="forgot-email" placeholder="xxxx@i-u.ac.jp">
+        </div>
+        <button class="btn btn-primary" onclick="doForgot()" style="width:100%;">送信</button>
+        <div class="auth-footer">
+          <a href="#" onclick="switchTab('login'); return false;">← ログインに戻る</a>
+        </div>
+      </div>
+
+      <!-- 登録フォーム -->
+      <div class="auth-form-panel" id="panel-register">
+        <div class="form-group">
+          <label class="form-label" for="reg-name">表示名</label>
+          <input class="form-input" type="text" id="reg-name" placeholder="山田 太郎">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-email">大学メールアドレス</label>
+          <input class="form-input" type="email" id="reg-email" placeholder="xxxx@i-u.ac.jp" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-password">パスワード（8文字以上）</label>
+          <input class="form-input" type="password" id="reg-password" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary btn-lg" id="register-btn" onclick="doRegister()" style="width:100%;">
+          登録して確認メールを送信
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // ログイン済みならboard.htmlへ
+    if (Auth.token()) location.href = "board.html";
+
+    function switchTab(tab) {
+      ["login","register"].forEach(t => {
+        document.getElementById("tab-" + t)?.classList.toggle("active", t === tab);
+        document.getElementById("panel-" + t)?.classList.toggle("active", t === tab);
+      });
+      document.getElementById("panel-forgot")?.classList.remove("active");
+      document.getElementById("alert-area").innerHTML = "";
+    }
+    function switchForgot() {
+      ["login","register"].forEach(t => {
+        document.getElementById("tab-" + t)?.classList.remove("active");
+        document.getElementById("panel-" + t)?.classList.remove("active");
+      });
+      document.getElementById("panel-forgot").classList.add("active");
+      document.getElementById("alert-area").innerHTML = "";
+    }
+
+    async function doLogin() {
+      const email    = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value;
+      const btn      = document.getElementById("login-btn");
+      const alert    = document.getElementById("alert-area");
+
+      if (!email || !password) { Utils.showAlert(alert, "メールアドレスとパスワードを入力してください"); return; }
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;"></span> 確認中…';
+
+      const res = await Api.login(email, password);
+      btn.disabled = false;
+      btn.innerHTML = "ログイン";
+
+      if (!res.success) { Utils.showAlert(alert, res.error); return; }
+      Auth.save(res.data.session_token, res.data.uid, res.data.display_name);
+      location.href = "board.html";
+    }
+
+    async function doRegister() {
+      const name     = document.getElementById("reg-name").value.trim();
+      const email    = document.getElementById("reg-email").value.trim();
+      const password = document.getElementById("reg-password").value;
+      const btn      = document.getElementById("register-btn");
+      const alert    = document.getElementById("alert-area");
+
+      if (!name || !email || !password) { Utils.showAlert(alert, "すべての項目を入力してください"); return; }
+      if (password.length < 8)          { Utils.showAlert(alert, "パスワードは8文字以上にしてください"); return; }
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;"></span> 送信中…';
+
+      const res = await Api.register(email, password, name);
+      btn.disabled = false;
+      btn.innerHTML = "登録して確認メールを送信";
+
+      if (!res.success) { Utils.showAlert(alert, res.error); return; }
+      Utils.showAlert(alert, "確認メールを送信しました。メールのリンクをクリックして認証を完了してください。", "success");
+    }
+
+    async function doForgot() {
+      const email = document.getElementById("forgot-email").value.trim();
+      const alert = document.getElementById("alert-area");
+      if (!email) { Utils.showAlert(alert, "メールアドレスを入力してください"); return; }
+      await Api.forgotPassword(email);
+      Utils.showAlert(alert, "リセットメールを送信しました（登録済みの場合）。", "success");
+    }
+
+    // Enterキー対応
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        if (document.getElementById("panel-login").classList.contains("active")) doLogin();
+        if (document.getElementById("panel-register").classList.contains("active")) doRegister();
+        if (document.getElementById("panel-forgot").classList.contains("active")) doForgot();
+      }
+    });
+  </script>
 </body>
 </html>
