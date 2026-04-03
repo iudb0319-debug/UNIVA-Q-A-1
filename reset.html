@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNIVA Q&A — パスワードリセット</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="simple-page">
+    <div class="card simple-card" style="text-align:left; max-width:420px;">
+      <div class="simple-title" style="text-align:center; margin-bottom:24px;">🔐 パスワードリセット</div>
+      <div id="alert-area"></div>
+
+      <!-- リセットフォーム -->
+      <div id="reset-form">
+        <div class="form-group" style="margin-bottom:16px;">
+          <label class="form-label" for="new-password">新しいパスワード（8文字以上）</label>
+          <input class="form-input" type="password" id="new-password" autocomplete="new-password">
+        </div>
+        <div class="form-group" style="margin-bottom:24px;">
+          <label class="form-label" for="confirm-password">パスワードの確認</label>
+          <input class="form-input" type="password" id="confirm-password" autocomplete="new-password">
+        </div>
+        <button class="btn btn-primary" id="reset-btn" onclick="doReset()" style="width:100%;">
+          パスワードを変更する
+        </button>
+      </div>
+
+      <!-- 完了メッセージ -->
+      <div id="success-area" style="display:none;text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:12px;">✅</div>
+        <div class="simple-message">パスワードを変更しました。</div>
+        <a href="index.html" class="btn btn-primary" style="margin-top:12px;">ログインへ →</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    const token = Utils.param("token");
+
+    async function doReset() {
+      const newPw  = document.getElementById("new-password").value;
+      const confPw = document.getElementById("confirm-password").value;
+      const alert  = document.getElementById("alert-area");
+      const btn    = document.getElementById("reset-btn");
+
+      if (!token)         { Utils.showAlert(alert, "リセットトークンが見つかりません"); return; }
+      if (newPw.length < 8) { Utils.showAlert(alert, "パスワードは8文字以上にしてください"); return; }
+      if (newPw !== confPw) { Utils.showAlert(alert, "パスワードが一致していません"); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;"></span> 変更中…';
+
+      const res = await Api.resetPassword(token, newPw);
+      btn.disabled = false;
+      btn.innerHTML = "パスワードを変更する";
+
+      if (!res.success) { Utils.showAlert(alert, res.error); return; }
+
+      document.getElementById("reset-form").style.display   = "none";
+      document.getElementById("success-area").style.display = "block";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!Utils.param("token")) {
+        Utils.showAlert(document.getElementById("alert-area"), "URLが無効です。パスワードリセットメールのリンクをご確認ください。");
+        document.getElementById("reset-btn").disabled = true;
+      }
+    });
+    window.doReset = doReset;
+  </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNIVA Q&A — 掲示板</title>
+  <meta name="description" content="iU Q&A掲示板。質問を検索・フィルタして閲覧できます。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header class="header">
+    <div class="header-logo">UNIVA Q&A</div>
+    <div class="header-right">
+      <span class="header-username" id="header-username"></span>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="page-container fade-in">
+    <div class="board-layout">
+
+      <!-- 左サイドバー: フィルタ -->
+      <aside class="board-sidebar">
+        <div class="card sidebar-card">
+          <div class="sidebar-title">フィルタ</div>
+
+          <div class="filter-section">
+            <div class="filter-section-label">ジャンル</div>
+            <div class="genre-list">
+              <label class="genre-item"><input type="checkbox" class="genre-checkbox" value="履修"> 履修</label>
+              <label class="genre-item"><input type="checkbox" class="genre-checkbox" value="就職"> 就職</label>
+              <label class="genre-item"><input type="checkbox" class="genre-checkbox" value="キャンパス"> キャンパス</label>
+              <label class="genre-item"><input type="checkbox" class="genre-checkbox" value="制度"> 制度</label>
+              <label class="genre-item"><input type="checkbox" class="genre-checkbox" value="その他"> その他</label>
+            </div>
+          </div>
+
+          <div class="filter-section">
+            <div class="filter-section-label">アクティブなタグ</div>
+            <div id="active-filters" class="tag-cloud" style="gap:6px;"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 中央: 質問リスト -->
+      <main>
+        <div class="board-header">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input class="form-input" type="text" id="search-input" placeholder="キーワードで検索…">
+          </div>
+          <div class="sort-tabs">
+            <button class="sort-tab active" data-sort="recent">新着</button>
+            <button class="sort-tab" data-sort="rating">高評価</button>
+            <button class="sort-tab" data-sort="relevance">関連度</button>
+          </div>
+        </div>
+
+        <div id="question-list"></div>
+        <div id="pagination" class="pagination" style="margin-top:20px;"></div>
+      </main>
+
+      <!-- 右カラム: ワードクラウド -->
+      <aside class="board-wordcloud">
+        <div class="card wordcloud-card">
+          <div class="wordcloud-title">ワードクラウド</div>
+          <div class="wordcloud-modes">
+            <button class="wc-mode-btn active" data-mode="recent" id="wc-recent">直近</button>
+            <button class="wc-mode-btn" data-mode="rating" id="wc-rating">高評価</button>
+            <button class="wc-mode-btn" data-mode="keyword" id="wc-keyword">検索語</button>
+          </div>
+          <canvas id="wordcloud-canvas" width="260" height="220"></canvas>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- フローティング質問ボタン -->
+  <button class="fab" onclick="location.href='ask.html'" title="質問する">＋</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/wordcloud.js"></script>
+  <script src="js/board.js"></script>
+  <script>
+    // ワードクラウド初期化
+    document.addEventListener("DOMContentLoaded", async () => {
+      const canvas = document.getElementById("wordcloud-canvas");
+      await WordCloudManager.init(canvas);
+
+      const mode = document.querySelector(".wc-mode-btn.active")?.dataset.mode || "recent";
+      WordCloudManager.render(Auth.token(), mode);
+
+      document.querySelectorAll(".wc-mode-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".wc-mode-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          const kw = document.getElementById("search-input")?.value.trim() || "";
+          WordCloudManager.render(Auth.token(), btn.dataset.mode, kw);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

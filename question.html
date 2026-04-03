@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNIVA Q&A — 質問詳細</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-logo" style="cursor:pointer" onclick="location.href='board.html'">
+      ‹ UNIVA Q&A
+    </div>
+    <div class="header-right">
+      <span class="header-username" id="header-username"></span>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="page-container fade-in">
+    <div class="question-detail">
+      <div id="alert-area"></div>
+
+      <!-- 質問カード -->
+      <div class="card question-detail-card" id="question-section">
+        <div style="text-align:center;padding:32px;"><div class="spinner"></div></div>
+      </div>
+
+      <!-- 回答カード -->
+      <div class="card answer-card" id="answer-section" style="display:none;">
+        <div class="answer-label">AI 回答</div>
+        <div id="answer-body" class="answer-body"></div>
+        <div id="answer-sources" class="answer-sources"></div>
+      </div>
+
+      <!-- 生成中カード -->
+      <div class="card" id="loading-section" style="display:none;">
+        <div class="answer-loading">
+          <div class="spinner"></div>
+          <div class="answer-loading-text">AI回答を生成中です… しばらくお待ちください</div>
+        </div>
+      </div>
+
+      <!-- エラーカード -->
+      <div class="card" id="error-section" style="display:none;padding:24px;">
+        <div class="alert alert-error">回答の生成に失敗しました。しばらくして再度お試しください。</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    const qid = Utils.param("qid");
+    let pollTimer = null;
+    let currentStatus = "";
+
+    async function load() {
+      const session = Auth.require();
+      if (!session) return;
+      Auth.setHeaderUser();
+
+      if (!qid) {
+        Utils.showAlert(document.getElementById("alert-area"), "質問IDが指定されていません");
+        return;
+      }
+
+      const res = await Api.getQuestion(Auth.token(), qid);
+      if (!res.success) {
+        Utils.showAlert(document.getElementById("alert-area"), res.error);
+        return;
+      }
+
+      const q = res.data.question;
+      const a = res.data.answer;
+      currentStatus = q.status;
+
+      renderQuestion(q, res.data);
+      renderAnswer(q.status, a);
+
+      // pending / processing なら5秒ごとにポーリング
+      if (q.status === "pending" || q.status === "processing") {
+        pollTimer = setInterval(pollStatus, 5000);
+      }
+    }
+
+    function renderQuestion(q, data) {
+      const tagsHtml = Utils.tagsHtml(Array.isArray(q.tags) ? q.tags.join(",") : q.tags);
+      document.getElementById("question-section").innerHTML = `
+        <div class="question-detail-title">${Utils.esc(q.title)}</div>
+        <div class="question-detail-meta">
+          <span class="question-genre">${Utils.esc(q.genre || "その他")}</span>
+          ${tagsHtml}
+          ${Utils.statusBadge(q.status)}
+          <span style="color:var(--text-secondary);font-size:0.8rem;">👁 ${q.view_count}</span>
+          <span style="color:var(--text-secondary);font-size:0.8rem;">${Utils.timeAgo(q.created_at)}</span>
+        </div>
+        <div class="question-body">${Utils.esc(q.body)}</div>
+        ${q.status === "answered" ? renderRatingButtons(q.rating, q.user_vote) : ""}
+      `;
+    }
+
+    function renderRatingButtons(score, userVote) {
+      return `
+        <div class="rating-buttons">
+          <button class="rate-btn ${userVote === 1 ? "active-up" : ""}" id="btn-up" onclick="rate(1)">
+            ▲ 役に立った <span id="score-display">${score >= 0 ? "+" : ""}${score}</span>
+          </button>
+          <button class="rate-btn ${userVote === -1 ? "active-down" : ""}" id="btn-down" onclick="rate(-1)">
+            ▼ 役に立たなかった
+          </button>
+        </div>
+      `;
+    }
+
+    function renderAnswer(status, answer) {
+      const answerSection  = document.getElementById("answer-section");
+      const loadingSection = document.getElementById("loading-section");
+      const errorSection   = document.getElementById("error-section");
+
+      answerSection.style.display  = "none";
+      loadingSection.style.display = "none";
+      errorSection.style.display   = "none";
+
+      if (status === "answered" && answer) {
+        answerSection.style.display = "block";
+        document.getElementById("answer-body").textContent = answer.body;
+        if (answer.source_refs) {
+          document.getElementById("answer-sources").innerHTML =
+            `📚 参照資料: ${Utils.esc(answer.source_refs)}`;
+        }
+      } else if (status === "pending" || status === "processing") {
+        loadingSection.style.display = "block";
+      } else if (status === "error") {
+        errorSection.style.display = "block";
+      }
+    }
+
+    async function pollStatus() {
+      const res = await Api.getStatus(Auth.token(), qid);
+      if (!res.success) return;
+
+      const status = res.data.status;
+      if (status === currentStatus) return;
+      currentStatus = status;
+
+      if (status === "answered" || status === "error") {
+        clearInterval(pollTimer);
+        // 詳細を再取得して画面更新
+        const full = await Api.getQuestion(Auth.token(), qid);
+        if (full.success) {
+          renderQuestion(full.data.question, full.data);
+          renderAnswer(full.data.question.status, full.data.answer);
+        }
+      }
+    }
+
+    async function rate(vote) {
+      const res = await Api.rateQuestion(Auth.token(), qid, vote);
+      if (!res.success) { alert(res.error); return; }
+      // 再ロードして評価を反映
+      const full = await Api.getQuestion(Auth.token(), qid);
+      if (full.success) renderQuestion(full.data.question, full.data);
+    }
+    window.rate = rate;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("logout-btn")?.addEventListener("click", () => Auth.logout());
+      load();
+    });
+  </script>
+</body>
+</html>

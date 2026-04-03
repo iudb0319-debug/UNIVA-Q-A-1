@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNIVA Q&A — メール認証</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="simple-page">
+    <div class="card simple-card">
+      <div class="simple-icon" id="icon">✉️</div>
+      <div class="simple-title" id="title">認証中…</div>
+      <div class="simple-message" id="message">
+        <span class="spinner"></span>
+      </div>
+      <div id="action-area"></div>
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    async function verify() {
+      // URLからトークンを取得（パス末尾またはクエリパラメータ両対応）
+      let token = Utils.param("token");
+      if (!token) {
+        // パス末尾がトークンの場合（/verify.html/TOKEN または /UNIVA-Q-A-1/TOKEN）
+        const parts = location.pathname.split("/");
+        token = parts[parts.length - 1];
+        if (token === "verify.html" || !token) token = "";
+      }
+
+      if (!token) {
+        document.getElementById("icon").textContent = "❌";
+        document.getElementById("title").textContent = "エラー";
+        document.getElementById("message").textContent = "認証トークンが見つかりません。";
+        return;
+      }
+
+      const res = await Api.verify(token);
+
+      if (res.success) {
+        document.getElementById("icon").textContent  = "✅";
+        document.getElementById("title").textContent = "認証完了";
+        document.getElementById("message").textContent =
+          "メールアドレスの認証が完了しました！\nログインしてUNIVA Q&Aをお楽しみください。";
+        document.getElementById("action-area").innerHTML =
+          `<a href="index.html" class="btn btn-primary" style="margin-top:12px;">ログインへ →</a>`;
+      } else {
+        document.getElementById("icon").textContent  = "❌";
+        document.getElementById("title").textContent = "認証失敗";
+        document.getElementById("message").textContent =
+          res.error || "無効なトークンです。リンクの有効期限が切れているか、すでに認証済みの可能性があります。";
+        document.getElementById("action-area").innerHTML =
+          `<a href="index.html" class="btn btn-secondary" style="margin-top:12px;">トップに戻る</a>`;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", verify);
+  </script>
+</body>
+</html>
