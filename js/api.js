@@ -3,7 +3,6 @@
 // ============================================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwvhHZET-7y0NdJHeqAB6UUKEIPWgUfK75ic4EcLnICMBhmyZkpDcuIN-ddgnsSHQA-/exec";
-// ↑ GASのデプロイURLに変更してください
 
 const Api = {
   async post(action, body = {}) {
